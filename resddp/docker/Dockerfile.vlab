@@ -1,0 +1,59 @@
+FROM quay.io/jupyter/datascience-notebook:julia-1.10.4
+
+# ---------- System-avhengigheter ----------
+USER root
+RUN apt-get update && apt-get install -y gnupg && \
+    curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash && \
+    apt-get install -y git-lfs && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir nbgitpuller jupytext
+
+COPY ./docker/overrides.json ${CONDA_DIR}/share/jupyter/lab/settings/overrides.json
+
+COPY . /ReSDDP.jl
+RUN chown -R jovyan:users /ReSDDP.jl
+
+# ---------- Miljøvariabler ----------
+# Depot i image-laget: pakker + precompile-cache overlever PVC-mounten
+# (som kun dekker /home/jovyan). LOAD_PATH settes IKKE globalt – kun i
+# kernelen, så vanlige terminal-sesjoner ikke påvirkes.
+ENV JULIA_DEPOT_PATH=/opt/julia
+ENV JULIA_NUM_THREADS=4
+ENV JULIA_CPU_TARGET="generic;haswell,clone_all;broadwell,clone_all"
+
+# ---------- Ett miljø, all Julia-setup i én kontekst (jovyan) ----------
+# Identisk med kernelens kontekst (--project=@ReSDDP + LOAD_PATH=@:@stdlib),
+# så precompile-cachen er gyldig og notebooken slipper kompilering.
+# JLLWrappers >=1.8 fikser riscv64-feilen. IJulia.installkernel finner
+# riktig launcher selv – vi lagrer kernel-stien til neste steg.
+USER jovyan
+RUN JULIA_LOAD_PATH="@:@stdlib" julia -e '\
+    import Pkg; \
+    Pkg.activate("ReSDDP"; shared=true); \
+    Pkg.develop(path="/ReSDDP.jl"); \
+    Pkg.add(["IJulia", "FileIO", "JLD2", "Plots"]); \
+    Pkg.add(name="JLLWrappers", version="1.8"); \
+    Pkg.instantiate(); \
+    Pkg.precompile(); \
+    using ReSDDP, IJulia, FileIO, JLD2, Plots; \
+    kdir = IJulia.installkernel("Julia", "--project=@ReSDDP", \
+        env=Dict("JULIA_LOAD_PATH" => "@:@stdlib")); \
+    write("/tmp/kdir.txt", kdir); \
+    println("Kernel installed at ", kdir)'
+
+# ---------- Flytt kernelen til systemstien (root) ----------
+# Systemstien (/opt/conda/...) overlever PVC-mounten og har lavere prioritet
+# enn ~/.local – men siden vi fjerner alle bruker-kerneler, blir denne den ene.
+USER root
+RUN KDIR=$(cat /tmp/kdir.txt) && \
+    NAME=$(basename "$KDIR") && \
+    DEST="/opt/conda/share/jupyter/kernels/$NAME" && \
+    if [ "$KDIR" != "$DEST" ]; then rm -rf "$DEST" && mv "$KDIR" "$DEST"; fi && \
+    rm -rf /home/jovyan/.local/share/jupyter/kernels/julia* 2>/dev/null || true && \
+    rm -f /tmp/kdir.txt && \
+    chown -R root:root "$DEST" && \
+    echo "=== kernelspec ===" && jupyter kernelspec list && cat "$DEST/kernel.json"
+
+USER jovyan
+WORKDIR /home/jovyan

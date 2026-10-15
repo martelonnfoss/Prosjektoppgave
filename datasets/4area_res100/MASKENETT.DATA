@@ -1,0 +1,26 @@
+'MASKENETT',56,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+ 1,'numedal',2,'tev',
+ 0.1,0.00,0.00,
+ 0,200.00,200.00
+ 0,
+ 2,'tev',3,'otra',
+ 0.1,0.00,0.00,
+ 0,200.0,200.0,
+ 0,
+ 3,'otra',1,'numedal',
+ 0.1,0.00,0.00,
+ 0,200.0,200.0,
+ 0,
+ 3,'otra',4,'term',
+ 0.1,0.00,0.00,
+ 0,300.0,300.0,
+ 0,
+-1,'AVSLUTT',-1,'SLUTT'
+
+
+
+
+For hver overf|ringslinje:
+Omr}denr.fra, Omr}denavn fra, Omr}denr.til, Omr}denavn til
+Tap (%), Avgift fra-til, Avgift til-fra, Kapasitet fra-til (MW), Kap. til-fra
+Antall revisjoner,
